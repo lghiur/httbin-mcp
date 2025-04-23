@@ -27,7 +27,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "18" # Or your preferred Node.js version
+          node-version: "20" # Updated to Node.js 20 to support minimatch@10.0.1
           registry-url: "https://registry.npmjs.org/"
           # To use a custom scope, uncomment and modify the next line
           # scope: "@your-org"
@@ -35,7 +35,11 @@ jobs:
           # No need to explicitly pass NODE_AUTH_TOKEN to setup-node
 
       - name: Install dependencies
-        run: npm install
+        run: |
+          # Clear npm cache to avoid any corruption
+          npm cache clean --force
+          # Install dependencies with no legacy peer deps to avoid compatibility issues
+          npm install --no-fund --no-audit --prefer-offline --no-package-lock
 
       - name: Update package version
         run: |
