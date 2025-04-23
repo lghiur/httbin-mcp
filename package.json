@@ -1,5 +1,5 @@
 {
-  "name": "api-to-mcp",
+  "name": "@tyk-technologies/api-to-mcp",
   "version": "1.0.0",
   "description": "Generates MCP tool code from OpenAPI specs",
   "main": "dist/index.js",
