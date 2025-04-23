@@ -1,8 +1,7 @@
 {
-  "spec": "./specs/petstore-openapi.json",
-  "overlays": "./specs/petstore-overlay.json",
-  "port": 8080,
-  "targetUrl": "https://petstore3.swagger.io/api/v3",
+  "spec": "http://localhost:8181/bin/spec",
+  "port": 8181,
+  "targetUrl": "http://localhost:8181/bin",
   "whitelist": "*",
   "headers": {
     "X-Custom-Header": "custom-value",
