@@ -121,8 +121,8 @@ async function startServer() {
                             return {
                                 content: [
                                     {
-                                        type: "application/json", 
-                                        data: result.data
+                                        type: "text", 
+                                        text: JSON.stringify(result.data)
                                     }
                                 ]
                             };
