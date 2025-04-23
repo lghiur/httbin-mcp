@@ -179,7 +179,12 @@ async function startServer() {
     }
 }
 
-startServer().catch(error => {
-    console.error('Unhandled error during server startup:', error);
-    process.exit(1);
-});
+export { startServer };
+
+// Only auto-start if this is the main module
+if (require.main === module) {
+    startServer().catch(error => {
+        console.error('Unhandled error during server startup:', error);
+        process.exit(1);
+    });
+}

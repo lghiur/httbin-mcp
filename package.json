@@ -4,6 +4,7 @@
   "description": "Generates MCP tool code from OpenAPI specs",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "type": "commonjs",
   "scripts": {
     "build": "tsc",
     "start": "node dist/server.js",
@@ -12,9 +13,12 @@
     "test": "jest",
     "test:integration": "jest --testMatch='**/test/integration/**/*.test.ts'"
   },
-  "bin": "dist/index.js",
+  "bin": {
+    "api-to-mcp": "./bin/api-to-mcp"
+  },
   "files": [
     "dist/**/*",
+    "bin",
     "config.example.json",
     "specs/**/*",
     "README.md",

@@ -1,0 +1,17 @@
+#!/usr/bin/env node
+
+const path = require('path');
+const { spawn } = require('child_process');
+
+// Path to the main script
+const mainScript = path.resolve(__dirname, '..', 'dist', 'src', 'server.js');
+
+// Spawn the main script with the same arguments
+const child = spawn('node', [mainScript, ...process.argv.slice(2)], {
+  stdio: 'inherit'
+});
+
+// Handle process exit
+child.on('exit', (code) => {
+  process.exit(code);
+});
