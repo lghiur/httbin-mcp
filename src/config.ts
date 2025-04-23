@@ -3,6 +3,7 @@ import path from 'path';
 import yargs from 'yargs/yargs';
 import { hideBin } from 'yargs/helpers';
 import fs from 'fs';
+import { isHttpUrl } from './utils/httpClient';
 
 dotenv.config();
 
@@ -162,9 +163,9 @@ if (argv.headers) {
 }
 
 export const config = {
-    specPath: path.resolve(argv.spec),
+    specPath: isHttpUrl(argv.spec) ? argv.spec : path.resolve(argv.spec),
     overlayPaths: argv.overlays
-        ? argv.overlays.split(',').map((p: string) => path.resolve(p.trim()))
+        ? argv.overlays.split(',').map((p: string) => isHttpUrl(p.trim()) ? p.trim() : path.resolve(p.trim()))
         : [],
     mcpPort: argv.port,
     targetApiBaseUrl: argv.targetUrl, // Explicit config takes precedence

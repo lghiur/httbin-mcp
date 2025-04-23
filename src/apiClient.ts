@@ -245,7 +245,7 @@ export async function executeApiCall(
         headers: headers,
         data: body,
         // Validate status to handle non-2xx as resolved promises
-        validateStatus: (status) => status >= 200 && status < 500, // Handle 4xx as well
+        validateStatus: (status: number) => status >= 200 && status < 500, // Handle 4xx as well
     };
 
     // Apply custom headers from configuration

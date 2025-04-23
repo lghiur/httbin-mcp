@@ -6,6 +6,7 @@ import path from 'path';
 import YAML from 'js-yaml'; // npm install js-yaml @types/js-yaml
 import { config } from './config';
 import type { ProcessedOpenAPI } from './types';
+import { isHttpUrl, fetchFromUrl } from './utils/httpClient';
 
 /**
  * Validates an OpenAPI specification for required elements
@@ -58,9 +59,27 @@ function validateOpenApiSpec(api: any): void {
 async function loadSpec(filePath: string): Promise<any> {
     console.error(`Loading OpenAPI spec from: ${filePath}`);
     try {
-        // Dereference resolves $refs and potentially provides absolute server URLs
-        // Use validate for basic structure check if needed separately
-        const api = await SwaggerParser.dereference(filePath);
+        let api;
+        
+        // Handle HTTP URLs
+        if (isHttpUrl(filePath)) {
+            console.error(`Detected HTTP URL for spec: ${filePath}`);
+            // Use our custom HTTP client instead of letting SwaggerParser handle URLs
+            const content = await fetchFromUrl(filePath);
+            // Parse the content based on file extension
+            if (filePath.endsWith('.yaml') || filePath.endsWith('.yml')) {
+                api = YAML.load(content);
+            } else {
+                api = JSON.parse(content);
+            }
+            
+            // Manually resolve any references
+            api = await SwaggerParser.dereference(api);
+        } else {
+            // Use SwaggerParser for local files
+            api = await SwaggerParser.dereference(filePath);
+        }
+        
         console.error(`Successfully loaded and dereferenced spec: ${api.info.title} v${api.info.version}`);
         
         // Additional validation beyond what SwaggerParser does
@@ -141,8 +160,17 @@ function validateOverlay(overlay: any): boolean {
 async function loadOverlay(filePath: string): Promise<any> {
     console.error(`Loading overlay file: ${filePath}`);
     try {
+        let content: string;
+        
+        if (isHttpUrl(filePath)) {
+            // Fetch overlay from HTTP URL
+            content = await fetchFromUrl(filePath);
+        } else {
+            // Load overlay from local file system
+            content = await fs.readFile(filePath, 'utf-8');
+        }
+        
         const ext = path.extname(filePath).toLowerCase();
-        const content = await fs.readFile(filePath, 'utf-8');
         let overlay;
         
         if (ext === '.yaml' || ext === '.yml') {

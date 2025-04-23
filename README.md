@@ -1,16 +1,16 @@
-# OpenAPI to MCP Generator
+# OpenAPI to MCP Server
 
-A tool that converts OpenAPI/Swagger specifications into Model Context Protocol (MCP) tools for AI assistant integration.
+A tool that creates MCP (Model Context Protocol) servers from OpenAPI/Swagger specifications, enabling AI assistants to interact with your APIs. **Create your own [branded and customized MCPs](#customizing-and-publishing-your-own-version)** for specific APIs or services.
 
 ## Overview
 
-This project creates a dynamic MCP server that generates tools based on an OpenAPI specification. It enables easy integration of REST APIs with AI assistants via the Model Context Protocol.
+This project creates a dynamic MCP server that transforms OpenAPI specifications into MCP tools. It enables seamless integration of REST APIs with AI assistants via the Model Context Protocol, turning any API into an AI-accessible tool.
 
 ## Features
 
-- Dynamic loading of OpenAPI specs from file or URL
+- Dynamic loading of OpenAPI specs from file or HTTP/HTTPS URLs
+- Support for [OpenAPI Overlays](#openapi-overlays) loaded from files or HTTP/HTTPS URLs
 - Customizable mapping of OpenAPI operations to MCP tools
-- Support for [OpenAPI Overlays](#openapi-overlays) to modify OpenAPI specs without changing the original files
 - Advanced filtering of operations using glob patterns for both operationId and URL paths
 - Comprehensive parameter handling with format preservation and location metadata
 - API authentication handling
@@ -20,60 +20,172 @@ This project creates a dynamic MCP server that generates tools based on an OpenA
 - X-MCP header for API request tracking and identification
 - Support for custom `x-mcp` extensions at the path level to override tool names and descriptions
 
-## Installation
+## Using with AI Assistants
 
-```bash
-# Clone the repository
-git clone <repository-url>
-cd openapi-to-mcp-generator
+This tool creates an MCP server that allows AI assistants to interact with APIs defined by OpenAPI specifications. The primary way to use it is by configuring your AI assistant to run it directly as an MCP tool.
 
-# Install dependencies
-npm install
+### Setting Up in Claude Desktop
 
-# Build the project
-npm run build
+1. Ensure you have [Node.js](https://nodejs.org/) installed on your computer
+2. Open Claude Desktop and navigate to Settings > Developer
+3. Edit the configuration file (or it will be created if it doesn't exist):
+   - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+   - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+
+4. Add this configuration (customize as needed):
+
+```json
+{
+  "mcpServers": {
+    "api-tools": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@tyktechnologies/api-to-mcp",
+        "--spec",
+        "https://petstore3.swagger.io/api/v3/openapi.json"
+      ],
+      "enabled": true
+    }
+  }
+}
 ```
 
-## Usage
+5. Restart Claude Desktop
+6. You should now see a hammer icon in the chat input box. Click it to access your API tools.
 
-```bash
-# Start the MCP server
-npm start
+### Customizing the Configuration
 
-# Development mode with auto-reload
-npm run dev
+You can adjust the `args` array to customize your MCP server with various options:
+
+```json
+{
+  "mcpServers": {
+    "my-api": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@tyktechnologies/api-to-mcp",
+        "--spec",
+        "./path/to/your/openapi.json",
+        "--overlays",
+        "./path/to/overlay.json,https://example.com/api/overlay.json",
+        "--whitelist",
+        "getPet*,POST:/users/*",
+        "--targetUrl",
+        "https://api.example.com"
+      ],
+      "enabled": true
+    }
+  }
+}
 ```
 
-### Command Line Options
+### Setting Up in Cursor
 
-You can also run the application with command-line arguments:
+1. Create a configuration file in one of these locations:
+   - Project-specific: `.cursor/mcp.json` in your project directory
+   - Global: `~/.cursor/mcp.json` in your home directory
 
-```bash
-# Start with specific OpenAPI spec file
-node dist/server.js --spec=./path/to/openapi.json
+2. Add this configuration (adjust as needed for your API):
 
-# Apply overlays to the spec
-node dist/server.js --spec=./path/to/openapi.json --overlays=./path/to/overlay.json
+```json
+{
+  "servers": [
+    {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@tyktechnologies/api-to-mcp",
+        "--spec",
+        "./path/to/your/openapi.json"
+      ],
+      "name": "My API Tools"
+    }
+  ]
+}
+```
 
-# Include only specific operations (supports glob patterns)
-node dist/server.js --spec=./path/to/openapi.json --whitelist="getPet*,POST:/users/*"
+3. Restart Cursor or reload the window
 
-# Specify target API URL
-node dist/server.js --spec=./path/to/openapi.json --targetUrl=https://api.example.com
+### Using with Vercel AI SDK
 
-# Set custom port
-node dist/server.js --spec=./path/to/openapi.json --port=3000
+You can also use this MCP server directly in your JavaScript/TypeScript applications using the Vercel AI SDK's MCP client:
 
-# Add custom headers to all API requests
-node dist/server.js --spec=./path/to/openapi.json --headers='{"X-Api-Version":"1.0.0"}'  
+```javascript
+import { experimental_createMCPClient } from 'ai';
+import { Experimental_StdioMCPTransport } from 'ai/mcp-stdio';
+import { generateText } from 'ai';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
 
-# Disable the X-MCP header
-node dist/server.js --spec=./path/to/openapi.json --disableXMcp
+// Initialize the Google Generative AI provider
+const google = createGoogleGenerativeAI({
+  apiKey: process.env.GOOGLE_API_KEY, // Set your API key in environment variables
+});
+const model = google('gemini-2.0-flash');
+
+// Create an MCP client with stdio transport
+const mcpClient = await experimental_createMCPClient({
+  transport: {
+    type: 'stdio',
+    command: 'npx', // Command to run the MCP server
+    args: ['-y', '@tyktechnologies/api-to-mcp', '--spec', 'https://petstore3.swagger.io/api/v3/openapi.json'], // OpenAPI spec
+    env: {
+      // You can set environment variables here
+      // API_KEY: process.env.YOUR_API_KEY,
+    },
+  },
+});
+
+async function main() {
+  try {
+    // Retrieve tools from the MCP server
+    const tools = await mcpClient.tools();
+
+    // Generate text using the AI SDK with MCP tools
+    const { text } = await generateText({
+      model,
+      prompt: 'List all available pets in the pet store using the API.',
+      tools, // Pass the MCP tools to the model
+    });
+
+    console.log('Generated text:', text);
+  } catch (error) {
+    console.error('Error:', error);
+  } finally {
+    // Always close the MCP client to release resources
+    await mcpClient.close();
+  }
+}
+
+main();
 ```
 
 ## Configuration
 
 Configuration is managed via environment variables, command-line options, or a JSON configuration file:
+
+### Command Line Options
+
+```bash
+# Start with specific OpenAPI spec file
+@tyktechnologies/api-to-mcp --spec=./path/to/openapi.json
+
+# Apply overlays to the spec
+@tyktechnologies/api-to-mcp --spec=./path/to/openapi.json --overlays=./path/to/overlay.json,https://example.com/api/overlay.json
+
+# Include only specific operations (supports glob patterns)
+@tyktechnologies/api-to-mcp --spec=./path/to/openapi.json --whitelist="getPet*,POST:/users/*"
+
+# Specify target API URL
+@tyktechnologies/api-to-mcp --spec=./path/to/openapi.json --targetUrl=https://api.example.com
+
+# Add custom headers to all API requests
+@tyktechnologies/api-to-mcp --spec=./path/to/openapi.json --headers='{"X-Api-Version":"1.0.0"}'
+
+# Disable the X-MCP header
+@tyktechnologies/api-to-mcp --spec=./path/to/openapi.json --disableXMcp
+```
 
 ### Environment Variables
 
@@ -81,7 +193,6 @@ You can set these in a `.env` file or directly in your environment:
 
 - `OPENAPI_SPEC_PATH`: Path to OpenAPI spec file
 - `OPENAPI_OVERLAY_PATHS`: Comma-separated paths to overlay JSON files
-- `MCP_SERVER_PORT`: Port for the MCP server (default: 8080)
 - `TARGET_API_BASE_URL`: Base URL for API calls (overrides OpenAPI servers)
 - `MCP_WHITELIST_OPERATIONS`: Comma-separated list of operation IDs or URL paths to include (supports glob patterns like `getPet*` or `GET:/pets/*`)
 - `MCP_BLACKLIST_OPERATIONS`: Comma-separated list of operation IDs or URL paths to exclude (supports glob patterns, ignored if whitelist used)
@@ -95,7 +206,7 @@ You can set these in a `.env` file or directly in your environment:
 
 ### JSON Configuration
 
-You can also use a JSON configuration file instead of environment variables or command-line options. The generator will look for configuration files in the following order:
+You can also use a JSON configuration file instead of environment variables or command-line options. The MCP server will look for configuration files in the following order:
 
 1. Path specified by `--config` command-line option
 2. Path specified by `CONFIG_FILE` environment variable
@@ -108,8 +219,7 @@ Example JSON configuration file:
 ```json
 {
   "spec": "./path/to/openapi-spec.json",
-  "overlays": "./path/to/overlay1.json,./path/to/overlay2.json",
-  "port": 8080,
+  "overlays": "./path/to/overlay1.json,https://example.com/api/overlay.json",
   "targetUrl": "https://api.example.com",
   "whitelist": "getPets,createPet,/pets/*",
   "blacklist": "deletePet,/admin/*",
@@ -137,11 +247,37 @@ Configuration settings are applied in the following order of precedence (highest
 2. Environment variables
 3. JSON configuration file
 
-## Customizing and Publishing Your Own Version
+## Development
 
-You can use this repository as a base for creating your own customized OpenAPI to MCP integration. This section explains how to fork the repository, customize it for your specific APIs, and publish it as a package.
+### Installation
 
-### Forking and Customizing
+```bash
+# Clone the repository
+git clone <repository-url>
+cd openapi-to-mcp-generator
+
+# Install dependencies
+npm install
+
+# Build the project
+npm run build
+```
+
+### Local Testing
+
+```bash
+# Start the MCP server
+npm start
+
+# Development mode with auto-reload
+npm run dev
+```
+
+### Customizing and Publishing Your Own Version
+
+You can use this repository as a base for creating your own customized OpenAPI to MCP server. This section explains how to fork the repository, customize it for your specific APIs, and publish it as a package.
+
+#### Forking and Customizing
 
 1. **Fork the Repository**:
    Fork this repository on GitHub to create your own copy that you can customize.
@@ -171,9 +307,9 @@ You can use this repository as a base for creating your own customized OpenAPI t
 4. **Update package.json**:
    ```json
    {
-     "name": "your-custom-mcp-generator",
+     "name": "your-custom-mcp-server",
      "version": "1.0.0",
-     "description": "Your customized MCP generator for specific APIs",
+     "description": "Your customized MCP server for specific APIs",
      "files": [
        "dist/**/*",
        "config.json",
@@ -186,7 +322,7 @@ You can use this repository as a base for creating your own customized OpenAPI t
 5. **Ensure Specs are Bundled**:
    The `files` field in package.json (shown above) ensures your specs and config file will be included in the published package.
 
-### Customizing the GitHub Workflow
+#### Customizing the GitHub Workflow
 
 The repository includes a GitHub Actions workflow for automatic publishing to npm. To customize it for your forked repo:
 
@@ -211,7 +347,7 @@ The repository includes a GitHub Actions workflow for automatic publishing to np
 3. **Set Up npm Token**:
    Add your npm token as a GitHub secret named `NPM_TOKEN` in your forked repository's settings.
 
-### Publishing Your Customized Package
+#### Publishing Your Customized Package
 
 Once you've customized the repository:
 
@@ -229,16 +365,16 @@ Once you've customized the repository:
    - Update version in package.json to match the tag
    - Publish to npm with your bundled specs and config
 
-### Usage After Publication
+## Usage After Publication
 
 Users of your customized package can install and use it with npm:
 
 ```bash
 # Install your customized package
-npm install your-custom-mcp-generator -g
+npm install your-custom-mcp-server -g
 
 # Run it
-your-custom-mcp-generator
+your-custom-mcp-server
 ```
 
 They can override your default settings via environment variables or command line options as described in the Configuration section.

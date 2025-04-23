@@ -21,6 +21,7 @@ describe('OpenAPI Processor Integration Tests', () => {
     
     // Clear jest module mocks between tests
     jest.resetModules();
+    jest.dontMock('../../src/config');
   });
 
   afterAll(() => {
@@ -30,7 +31,31 @@ describe('OpenAPI Processor Integration Tests', () => {
   });
 
   it('should load and process OpenAPI specification from file', async () => {
-    const openApiSpec = await getProcessedOpenApi();
+    // Explicitly mock config with no overlays for this test
+    jest.resetModules();
+    
+    jest.doMock('../../src/config', () => ({
+      config: {
+        specPath: path.resolve(process.cwd(), testConfig.openApiFile),
+        overlayPaths: [],
+        mcpPort: 8080,
+        targetApiBaseUrl: undefined,
+        apiKey: undefined,
+        securitySchemeName: undefined,
+        securityCredentials: {},
+        customHeaders: {},
+        disableXMcp: false,
+        filter: {
+          whitelist: null,
+          blacklist: [],
+        },
+      }
+    }));
+    
+    // Import the module with our mocks applied
+    const { getProcessedOpenApi: getProcessedOpenApiClean } = require('../../src/openapiProcessor');
+    
+    const openApiSpec = await getProcessedOpenApiClean();
     
     expect(openApiSpec).toBeDefined();
     expect(openApiSpec.openapi).toBe('3.0.0');
